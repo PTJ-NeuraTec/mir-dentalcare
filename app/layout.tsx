@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+/* =========================
+   Layout Components
+   ========================= */
+import Navigation from "./components/layout/Navigation";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 
@@ -19,7 +23,7 @@ const geistMono = Geist_Mono({
 });
 
 /* =========================
-   Metadata (actualizada)
+   Metadata
    ========================= */
 export const metadata: Metadata = {
   title: "MIR Dental Care (Demo)",
@@ -39,6 +43,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <Navigation />
         <Header />
         <main>{children}</main>
         <Footer />
