@@ -1,3 +1,4 @@
+
 "use client";
 
 import PatientsTable from "./_components/PatientsTable";
@@ -50,10 +51,10 @@ export default function PatientsPage() {
         copiedPlan,
         copyPlanToClipboard,
         treatmentPlanView,
+        treatmentPlanTotals,
         clearClinicalEntry,
 
-        // ✅ BLOCK 4 additions
-        treatmentPlanTotals,
+        // block 4 actions
         setCostOverride,
         revertCostToAuto,
     } = usePatientsDomain();
