@@ -1,20 +1,35 @@
+// app/patients/_domain/types.ts
+
+export type Surface = "O" | "M" | "D" | "B" | "L";
 export type ToothStatus = "normal" | "alert" | "treated";
 
-export type Surface = "O" | "M" | "D" | "B" | "L"; // Occlusal, Mesial, Distal, Buccal, Lingual
+/** ✅ Canonical odontogram types (fixes build error in utils.ts) */
+export type ToothSurfaces = Partial<Record<Surface, ToothStatus>>;
+export type Odontogram = Record<string, ToothSurfaces>;
 
-export type Odontogram = Record<string, Record<Surface, ToothStatus>>;
+export type Selection =
+    | {
+        tooth: string;
+        surface: Surface;
+        status: ToothStatus;
+    }
+    | null;
 
-/** ✅ Editable clinical data (in-memory, per patient/tooth/surface) */
+export type PlanFilter = "all" | "alertsOnly" | "treatedOnly";
+
 export type ClinicalEntry = {
     diagnosis: string;
     procedure: string;
     note: string;
 
-    /** ✅ Block 2: if true, user manually selected the procedure; we won't auto-overwrite it */
-    procedureManual?: boolean;
-};
+    /** Block 2: procedure override */
+    procedureManual: boolean;
 
-export type ClinicalMap = Record<string, Partial<Record<Surface, ClinicalEntry>>>;
+    /** ✅ Block 4: cost override (in-memory) */
+    costManual?: boolean;
+    costFee?: number; // USD
+    costMinutes?: number; // minutes
+};
 
 export type Patient = {
     id: string;
@@ -22,30 +37,55 @@ export type Patient = {
     age: number;
     gender: string;
     notes: string;
-    status: "Active" | "Follow-up" | "Inactive";
+    status: string;
+
+    /** ✅ Use Odontogram type instead of inline Record */
     odontogram: Odontogram;
 
-    /** ✅ In-memory persistence for clinical panel */
-    clinical: ClinicalMap;
+    clinical: Record<string, Partial<Record<Surface, ClinicalEntry>>>;
 };
 
-/** ✅ Block 3: Treatment plan row */
+/** Existing plan item */
 export type TreatmentPlanItem = {
     tooth: string;
     surface: Surface;
     surfaceName: string;
     status: ToothStatus;
+
     diagnosis: string;
     procedure: string;
     note: string;
+
     procedureManual: boolean;
+
+    /** ✅ Block 4: cost estimate in the plan view */
+    costFee: number; // USD
+    costMinutes: number; // minutes
+    costManual: boolean; // AUTO / MANUAL
+    costSource: "catalog" | "default" | "manual" | "none";
 };
 
-/** Optional but useful for the hook */
-export type PlanFilter = "all" | "alertsOnly" | "treatedOnly";
+export type CostEstimate = {
+    minutes: number;
+    fee: number;
+    costManual: boolean;
+    source: "catalog" | "default" | "manual" | "none";
+};
 
-export type Selection = {
-    tooth: string;
-    surface: Surface;
-    status: ToothStatus;
-} | null;
+export type TreatmentPlanTotals = {
+    totalMinutes: number;
+    totalFee: number;
+};
+
+export type KnownProcedure =
+    | "Clinical evaluation"
+    | "Dental cleaning"
+    | "Filling (composite)"
+    | "Filling (amalgam)"
+    | "Root canal therapy"
+    | "Crown placement"
+    | "Extraction"
+    | "Periodontal scaling"
+    | "Fluoride treatment"
+    | "Sealant application"
+    | "X-rays";

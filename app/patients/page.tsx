@@ -51,6 +51,11 @@ export default function PatientsPage() {
         copyPlanToClipboard,
         treatmentPlanView,
         clearClinicalEntry,
+
+        // ✅ BLOCK 4 additions
+        treatmentPlanTotals,
+        setCostOverride,
+        revertCostToAuto,
     } = usePatientsDomain();
 
     return (
@@ -154,8 +159,11 @@ export default function PatientsPage() {
                     copiedPlan={copiedPlan}
                     copyPlanToClipboard={copyPlanToClipboard}
                     treatmentPlanView={treatmentPlanView}
+                    treatmentPlanTotals={treatmentPlanTotals}
                     setSelection={setSelection}
                     clearClinicalEntry={clearClinicalEntry}
+                    setCostOverride={setCostOverride}
+                    revertCostToAuto={revertCostToAuto}
                 />
 
                 <div className="mt-5 grid gap-4 md:grid-cols-3">

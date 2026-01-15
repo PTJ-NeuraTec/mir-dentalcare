@@ -1,3 +1,4 @@
+// app/patients/_domain/usePatientsDomain.ts
 "use client";
 
 import { useMemo, useState } from "react";
@@ -10,6 +11,7 @@ import type {
     Surface,
     ToothStatus,
     TreatmentPlanItem,
+    TreatmentPlanTotals,
 } from "./types";
 
 import {
@@ -37,6 +39,12 @@ import {
     normalizeDiagnosisForRecommendation,
     isKnownProcedure,
 } from "./clinical";
+
+import {
+    clampMinutes,
+    clampMoney,
+    estimateCostForProcedure,
+} from "./costs";
 
 export type NewPatientForm = {
     name: string;
@@ -128,8 +136,7 @@ export function usePatientsDomain() {
         // if it does not exist, create it using mockClinical (based on current status)
         const d = mockClinical(status, surface);
 
-        // ✅ BLOCK 2: If we create a new entry, set a recommended procedure (Option C)
-        // It starts as AUTO (procedureManual=false)
+        // ✅ BLOCK 2: recommended procedure (Option C) starts as AUTO
         const safeDiagnosis = normalizeDiagnosisForRecommendation(d.diagnosis);
         const recommended = recommendProcedure({
             status,
@@ -137,11 +144,22 @@ export function usePatientsDomain() {
             surface,
         });
 
+        const procedure = isKnownProcedure(recommended) ? recommended : d.procedure;
+
+        // ✅ BLOCK 4: cost estimate defaults to AUTO (not persisted until user overrides)
+        // We compute here only to keep the initial experience consistent.
+        const ce = estimateCostForProcedure(procedure);
+
         return {
             diagnosis: d.diagnosis,
-            procedure: isKnownProcedure(recommended) ? recommended : d.procedure,
+            procedure,
             note: d.note,
             procedureManual: false,
+
+            // optional fields: set defaults only when user overrides (but safe to prefill too)
+            costManual: false,
+            costFee: ce.fee,
+            costMinutes: ce.minutes,
         };
     }
 
@@ -176,9 +194,7 @@ export function usePatientsDomain() {
         // If user set it manually, do not overwrite
         if (existing.procedureManual) return;
 
-        const rawDiagnosis = existing.diagnosis || "Requires evaluation";
-        const diagnosis = normalizeDiagnosisForRecommendation(rawDiagnosis);
-
+        const diagnosis = existing.diagnosis || "Requires evaluation";
         const recommended = recommendProcedure({ status, diagnosis, surface });
         if (!recommended) return;
 
@@ -190,6 +206,14 @@ export function usePatientsDomain() {
             procedure: recommended,
             procedureManual: false,
         };
+
+        // ✅ BLOCK 4: if cost is AUTO, update the estimate when procedure changes
+        if (!updated.costManual) {
+            const ce = estimateCostForProcedure(updated.procedure);
+            updated.costFee = ce.fee;
+            updated.costMinutes = ce.minutes;
+            updated.costManual = false;
+        }
 
         // Persist
         const updatedPatients = [...patients];
@@ -211,7 +235,7 @@ export function usePatientsDomain() {
     function setSurface(tooth: string, surface: Surface) {
         const currentOd = activePatient.odontogram;
         const odWithTooth = ensureTooth(currentOd, tooth);
-        const currentStatus = odWithTooth[tooth][surface];
+        const currentStatus = odWithTooth[tooth][surface] ?? "normal";
         const updatedStatus = nextStatus(currentStatus);
 
         const updatedPatient: Patient = {
@@ -327,6 +351,46 @@ export function usePatientsDomain() {
         }
     }
 
+    /** ✅ BLOCK 4: set cost override (manual) */
+    function setCostOverride(tooth: string, surface: Surface, fee: number, minutes: number) {
+        const entry = getOrInitClinicalEntry(
+            activePatient,
+            tooth,
+            surface,
+            getSurfaceStatus(tooth, surface)
+        );
+
+        const updated: ClinicalEntry = {
+            ...entry,
+            costManual: true,
+            costFee: clampMoney(fee),
+            costMinutes: clampMinutes(minutes),
+        };
+
+        setClinicalEntry(tooth, surface, updated);
+    }
+
+    /** ✅ BLOCK 4: revert cost to AUTO estimate */
+    function revertCostToAuto(tooth: string, surface: Surface) {
+        const entry = getOrInitClinicalEntry(
+            activePatient,
+            tooth,
+            surface,
+            getSurfaceStatus(tooth, surface)
+        );
+
+        const auto = estimateCostForProcedure(entry.procedure);
+
+        const updated: ClinicalEntry = {
+            ...entry,
+            costManual: false,
+            costFee: auto.fee,
+            costMinutes: auto.minutes,
+        };
+
+        setClinicalEntry(tooth, surface, updated);
+    }
+
     /** ✅ Build Treatment Plan from clinical map + odontogram status */
     const treatmentPlan = useMemo((): TreatmentPlanItem[] => {
         const p = activePatient;
@@ -347,6 +411,19 @@ export function usePatientsDomain() {
                 const note = entry.note || "";
                 const procedureManual = !!entry.procedureManual;
 
+                // ✅ BLOCK 4: compute cost (manual override wins)
+                const manual = !!entry.costManual;
+                const ce = estimateCostForProcedure(procedure);
+                let costFee = ce.fee;
+                let costMinutes = ce.minutes;
+                let costSource: TreatmentPlanItem["costSource"] = ce.source;
+
+                if (manual) {
+                    costFee = clampMoney(Number(entry.costFee ?? ce.fee));
+                    costMinutes = clampMinutes(Number(entry.costMinutes ?? ce.minutes));
+                    costSource = "manual";
+                }
+
                 items.push({
                     tooth,
                     surface,
@@ -356,6 +433,11 @@ export function usePatientsDomain() {
                     procedure,
                     note,
                     procedureManual,
+
+                    costFee,
+                    costMinutes,
+                    costManual: manual,
+                    costSource,
                 });
             }
         }
@@ -372,7 +454,7 @@ export function usePatientsDomain() {
         });
 
         return items;
-    }, [activePatient]);
+    }, [activePatient]); // stays in sync with patient
 
     /** ✅ Filtered plan view (filter + search) */
     const treatmentPlanView = useMemo(() => {
@@ -393,6 +475,7 @@ export function usePatientsDomain() {
                 item.procedure,
                 item.note,
                 item.procedureManual ? "manual" : "auto",
+                item.costManual ? "manual" : "auto",
             ]
                 .join(" ")
                 .toLowerCase();
@@ -400,6 +483,22 @@ export function usePatientsDomain() {
             return hay.includes(q);
         });
     }, [treatmentPlan, planFilter, planSearch]);
+
+    /** ✅ BLOCK 4: Totals for current view */
+    const treatmentPlanTotals = useMemo((): TreatmentPlanTotals => {
+        let totalFee = 0;
+        let totalMinutes = 0;
+
+        for (const item of treatmentPlanView) {
+            totalFee += Number(item.costFee || 0);
+            totalMinutes += Number(item.costMinutes || 0);
+        }
+
+        return {
+            totalFee: clampMoney(totalFee),
+            totalMinutes: clampMinutes(totalMinutes),
+        };
+    }, [treatmentPlanView]);
 
     /** ✅ Export plan to clipboard (JSON) */
     async function copyPlanToClipboard() {
@@ -412,12 +511,12 @@ export function usePatientsDomain() {
                 },
                 generatedAt: new Date().toISOString(),
                 items: treatmentPlanView,
+                totals: treatmentPlanTotals,
             };
             await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
             setCopiedPlan(true);
             setTimeout(() => setCopiedPlan(false), 1200);
         } catch {
-            // no-op (clipboard may be blocked by browser policy)
             setCopiedPlan(false);
         }
     }
@@ -472,6 +571,7 @@ export function usePatientsDomain() {
         lowerTeeth,
         treatmentPlan,
         treatmentPlanView,
+        treatmentPlanTotals,
         clinicalPanel,
 
         // helpers (for UI components)
@@ -489,6 +589,10 @@ export function usePatientsDomain() {
         clearClinicalEntry,
         copyPlanToClipboard,
 
+        // block 4 actions
+        setCostOverride,
+        revertCostToAuto,
+
         // re-exported utility functions commonly used by UI
         statusFill,
         statusBorder,
@@ -502,10 +606,3 @@ export function usePatientsDomain() {
         SURFACES,
     };
 }
-
-/**
- * ✅ IMPORTANT: keep both exports:
- * - named export (usePatientsDomain)
- * - default export (needed by page.tsx compositor that imports default)
- */
-export default usePatientsDomain;
