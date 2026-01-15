@@ -6,7 +6,8 @@ import OdontogramSVG from "./_components/OdontogramSVG";
 import ClinicalPanel from "./_components/ClinicalPanel";
 import TreatmentPlan from "./_components/TreatmentPlan";
 
-import { usePatientsDomain } from "./_domain/usePatientsDomain";
+import { statusBorder, statusFill } from "./_domain/utils";
+import usePatientsDomain from "./_domain/usePatientsDomain";
 
 export default function PatientsPage() {
     const {
@@ -39,8 +40,6 @@ export default function PatientsPage() {
         setClinicalEntry,
         DIAGNOSIS_OPTIONS,
         PROCEDURE_OPTIONS,
-        statusBorder,
-        statusFill,
 
         // treatment plan
         planFilter,
@@ -82,7 +81,7 @@ export default function PatientsPage() {
                 </div>
             </section>
 
-            {/* Patients Table */}
+            {/* Patients Table (extracted) */}
             <PatientsTable
                 patients={patients}
                 activePatientIndex={activePatientIndex}
@@ -117,13 +116,11 @@ export default function PatientsPage() {
                             Treated
                         </span>
                         <span className="text-neutral-500">·</span>
-                        <span className="text-neutral-400">
-                            Surfaces: O (Occlusal), M (Mesial), D (Distal), B (Buccal), L (Lingual)
-                        </span>
+                        <span className="text-neutral-400">Surfaces: O (Occlusal), M (Mesial), D (Distal), B (Buccal), L (Lingual)</span>
                     </div>
                 </div>
 
-                {/* SVG */}
+                {/* SVG (extracted) */}
                 <OdontogramSVG
                     upperTeeth={upperTeeth}
                     lowerTeeth={lowerTeeth}
@@ -132,7 +129,7 @@ export default function PatientsPage() {
                     resetTooth={resetTooth}
                 />
 
-                {/* Clinical Panel */}
+                {/* Clinical Panel (extracted) */}
                 <ClinicalPanel
                     selection={selection}
                     clinicalPanel={clinicalPanel}
@@ -144,7 +141,7 @@ export default function PatientsPage() {
                     statusBorder={statusBorder}
                 />
 
-                {/* Treatment Plan */}
+                {/* Treatment Plan (extracted) */}
                 <TreatmentPlan
                     activePatient={activePatient}
                     planFilter={planFilter}
@@ -175,8 +172,7 @@ export default function PatientsPage() {
                     <div className="rounded border border-neutral-800 bg-neutral-950 p-4">
                         <p className="text-xs text-neutral-400">Clinical credibility</p>
                         <p className="mt-1 text-sm text-neutral-200">
-                            Decision-makers see a real odontogram workflow: not a toy grid, but tooth surfaces that behave like a
-                            serious system.
+                            Decision-makers see a real odontogram workflow: not a toy grid, but tooth surfaces that behave like a serious system.
                         </p>
                     </div>
                 </div>
@@ -187,7 +183,7 @@ export default function PatientsPage() {
                 </p>
             </section>
 
-            {/* New Patient Modal */}
+            {/* New Patient Modal (extracted) */}
             <NewPatientModal
                 showModal={showModal}
                 setShowModal={setShowModal}
