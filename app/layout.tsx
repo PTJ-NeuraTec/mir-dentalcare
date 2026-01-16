@@ -41,22 +41,11 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`
-          ${geistSans.variable} ${geistMono.variable} antialiased
-
-          /* ✅ FIX CRÍTICO: Forzamos base “dark” global para evitar texto claro sobre fondo claro
-             en máquinas con theme light / configuraciones distintas. */
-          min-h-screen bg-neutral-950 text-neutral-100
-        `}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-neutral-950 text-neutral-100`}
       >
         <Navigation />
         <Header />
-
-        {/* ✅ Opcional recomendado: refuerzo para asegurar fondo/texto dentro del área principal */}
-        <main className="min-h-screen bg-neutral-950 text-neutral-100">
-          {children}
-        </main>
-
+        <main>{children}</main>
         <Footer />
       </body>
     </html>
